@@ -6,9 +6,9 @@ library googleapis_generator.package_configuration;
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:discoveryapis_generator/discoveryapis_generator.dart';
-import 'package:pool/pool.dart';
 import 'package:yaml/yaml.dart';
 
 import '../googleapis_generator.dart';
@@ -68,6 +68,8 @@ class DiscoveryPackagesConfiguration {
    *         apis:
    *         -  datastore:v1beta2
    *         -  dns:v1beta1
+   *     discovery_overrides:
+   *     - oauth2:v2 # if discovery_overrides/oauth2__v2.json exists
    *     skipped_apis:
    *     - adexchangebuyer:v1
    *
@@ -90,29 +92,54 @@ class DiscoveryPackagesConfiguration {
    * documents are stored.
    */
   Future download(
-      String discoveryDocsDir, List<DirectoryListItems> items) async {
+    String discoveryDocsDir,
+    String discoveryDocsOverrideDir,
+    List<DirectoryListItems> items,
+  ) async {
     // Delete all downloaded discovery documents.
     var dir = new Directory(discoveryDocsDir);
     if (dir.existsSync()) dir.deleteSync(recursive: true);
 
     // Get all rest discovery documents & initialize this object.
     List<RestDescription> allApis = await fetchDiscoveryDocuments();
+    final apiOverrides = Directory(discoveryDocsOverrideDir)
+        .listSync(followLinks: false)
+        .where((e) => e is File)
+        .map((f) {
+      final api = RestDescription.fromJson(
+        json.decode((f as File).readAsStringSync()),
+      );
+      print(' - loaded ${api.id} from discovery_overrides/');
+      if (!yaml['discovery_overrides'].contains(api.id)) {
+        throw Exception(
+          'Overwritten API ${api.id} is not listed in config.yaml',
+        );
+      }
+      return api;
+    });
+    final apiOverrideIds = apiOverrides.map((api) => api.id).toList();
+    final overriddenApis =
+        allApis.where((api) => apiOverrideIds.contains(api.id)).toList();
+    allApis.removeWhere((api) => apiOverrideIds.contains(api.id));
+    allApis.addAll(apiOverrides);
+
+    print('Downloaded APIs that was overridden:');
+    overriddenApis.forEach((api) => ' - ${api.id}');
     _initialize(allApis);
 
     // Download the discovery documents for the packages to build
     // (only the APIs we're interested in).
 
-    var pool = Pool(10);
-
-    var count = 0;
-    try {
-      await pool.forEach(packages.entries, (e) async {
-        print(' ${++count} of ${packages.length} - ${e.key}');
-        await downloadDiscoveryDocuments('$discoveryDocsDir/${e.key}',
-            ids: e.value.apis);
-      }).drain();
-    } finally {
-      await pool.close();
+    for (final pkg in packages.values) {
+      print('## ${pkg.name}:');
+      for (final api in allApis.where((api) => api.id == pkg.apis)) {
+        var name =
+            '$discoveryDocsDir/${pkg.name}/${api.name}__${api.version}.json';
+        var file = new File(name);
+        var encoder = new JsonEncoder.withIndent('    ');
+        file.writeAsStringSync(encoder.convert(api.toJson()));
+        print('Wrote: $name');
+      }
     }
   }
 

@@ -217,7 +217,9 @@ packages:
     - artifactregistry:v1beta1
     - documentai:v1beta2
     - sqladmin:v1beta4
-    
+
+# Retain or override APIs that have been removed
+discovery_overrides: []
 
 # APIs that we do not wish to include in this package
 skipped_apis:

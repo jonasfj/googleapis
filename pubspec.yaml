@@ -1,7 +1,7 @@
 name: googleapis_generator_dependency
 
 environment:
-  sdk: '>=2.0.0-dev.22.0 <3.0.0'
+  sdk: '>=2.2.2 <3.0.0'
 
 dependencies:
   discoveryapis_generator:

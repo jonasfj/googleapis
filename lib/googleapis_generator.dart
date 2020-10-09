@@ -26,11 +26,9 @@ Future<List<RestDescription>> downloadDiscoveryDocuments(String outputDir,
     {List<String> ids}) {
   return fetchDiscoveryDocuments(ids: ids).then((List<RestDescription> apis) {
     var directory = new Directory(outputDir);
-    if (directory.existsSync()) {
-      print('Deleting directory $outputDir.');
-      directory.deleteSync(recursive: true);
+    if (!directory.existsSync()) {
+      directory.createSync(recursive: true);
     }
-    directory.createSync(recursive: true);
 
     for (var description in apis) {
       var name = '$outputDir/${description.name}__${description.version}.json';
@@ -99,7 +97,11 @@ Future downloadFromConfiguration(String configFile) async {
 
   // Generate the packages.
   var configFileUri = new Uri.file(configFile);
-  await configuration.download(configFileUri.resolve('discovery').path, items);
+  await configuration.download(
+    configFileUri.resolve('discovery').path,
+    configFileUri.resolve('discovery_overrides').path,
+    items,
+  );
 
   // Print warnings for APIs not mentioned.
   if (configuration.missingApis.isNotEmpty) {

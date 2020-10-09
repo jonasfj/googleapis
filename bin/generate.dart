@@ -79,7 +79,10 @@ void main(List<String> arguments) {
 
   switch (commandOptions.name) {
     case 'download':
-      downloadDiscoveryDocuments(commandOptions['output-dir']);
+      final outputDir = commandOptions['output-dir'];
+      print('Deleting directory $outputDir.');
+      Directory(outputDir).deleteSync(recursive: true);
+      downloadDiscoveryDocuments(outputDir);
       break;
     case 'run_config':
       if (commandOptions.command == null ||
